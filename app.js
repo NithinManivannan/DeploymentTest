@@ -1,10 +1,18 @@
 const express = require('express');
+const cors = require('cors');
 const { csvToJson, storeDataInPinecone, GetSimilarJobRoles, GetDataForJobPosting, generateFinalJobDescription } = require('./main');
+
 const app = express();
 const port = process.env.PORT || 3000;
 
+// Use CORS middleware
+app.use(cors());
+
+// Middleware to parse JSON bodies
+app.use(express.json());
+
 app.get('/', (req, res) => {
-  res.send('Hello World 2!');
+  res.send('Hello World 3!');
 });
 
 app.post('/api/job-role', async (req, res) => {
