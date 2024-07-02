@@ -11,6 +11,12 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "express": "^4.19.2"
+    "express": "^4.19.2",
+    "@pinecone-database/pinecone": "^2.0.1",
+    "axios": "^1.6.7",
+    "csv-parser": "^3.0.0",
+    "@azure/openai": "^1.0.0-beta.11",
+    "percentile": "^1.6.0",
+    "json5": "^2.2.3"
   }
 }
