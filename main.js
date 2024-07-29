@@ -29,144 +29,135 @@ async function storeDataInPinecone() {
     let jsonData = fs.readFileSync(outputJsonPath, 'utf8');
     jsonData = JSON.parse(jsonData);
 
-    // //add an id field to each record
-    // for (let i = 0; i < jsonData.length; i++) {
-    //     jsonData[i].id = i;
-    // }
-
-    // // store this back in the outputJsonPath
-    // fs.writeFileSync(outputJsonPath, JSON.stringify(jsonData), 'utf8');
-
     for (const data of jsonData) {
-        const embedding = await getEmbedding(JSON.stringify(data));
-
+        const embedding = await getEmbedding(data.Title);  // Only embed the job title
         const record = {
-            id: `${data.id}`,
+            id: data.Title,  // Use the job title as the ID
             values: embedding,
             metadata: {
-                id: `${data.id}`
+                title: data.Title,
+                description: data.JobDescription,
+                requirement: data.JobRequirment,
+                qualification: data.RequiredQual
             }
         };
-
-        await writeVectors([record], "JOB POSTINGS");
+        await writeVectors([record], "JOB_TITLES");
     }
 }
 
-async function GetSimilarJobRoles(role) {
-    let jsonData = fs.readFileSync(outputJsonPath, 'utf8');
-    jsonData = JSON.parse(jsonData);
+// async function GetSimilarJobRoles(role) {
+//     let jsonData = fs.readFileSync(outputJsonPath, 'utf8');
+//     jsonData = JSON.parse(jsonData);
 
-    const response = await searchVector(role, "JOB POSTINGS", 10);
+//     const response = await searchVector(role, "JOB POSTINGS", 10);
 
-    // get matching job roles
-    const jobRoles = [];
-    for (const result of response) {
-        const id = Number(result.id);
-        const jobRole = jsonData.find((record) => record.id === id);
-        jobRoles.push(jobRole);
+//     // get matching job roles
+//     const jobRoles = [];
+//     for (const result of response) {
+//         const id = Number(result.id);
+//         const jobRole = jsonData.find((record) => record.id === id);
+//         jobRoles.push(jobRole);
+//     }
+
+//     return jobRoles;
+// }
+
+async function GetSimilarJobTitles(jobTitle, limit = 3) {
+    try {
+        const embedding = await getEmbedding(jobTitle);
+        if (!embedding) {
+            console.error('Failed to get embedding for job title');
+            return [];
+        }
+        const response = await searchVector(embedding, "JOB_TITLES", limit);
+        return response || [];
+    } catch (error) {
+        console.error('Error in GetSimilarJobTitles:', error);
+        return [];
     }
-
-    return jobRoles;
 }
 
-async function GetDataForJobPosting(targetRole, similarJobRoles) {
-    const messages = [
+const generateFinalJobDescription = async (data) => {
+    const { jobRole, responsibilities, qualifications, recommendedWords, wordsToAvoid } = data;
+
+    // Get similar job titles
+    const similarJobs = await GetSimilarJobTitles(jobRole);
+
+    const responsibilitiesStr = responsibilities.length > 0 ? responsibilities.join(", ") : "[No responsibilities listed]";
+    const qualificationsStr = qualifications.length > 0 ? qualifications.join(", ") : "[No qualifications listed]";
+
+    const similarJobsStr = similarJobs.map(job => 
+        `Title: ${job.title}\nDescription: ${job.description}\nRequirements: ${job.requirement}\nQualifications: ${job.qualification}`
+    ).join("\n\n");
+
+        const messages = [
         {
             role: "system",
-            content: `Your job is to analyze job postings and identify key data points needed to create a new comprehensive job posting. The user is a recruiter whose job is to make effective job postings and get good, quick hires. The user will provide sample job postings from their company and the current role they are looking to make a job posting for.
-            
-            Based on the provided job postings, please:
-            1. Identify the key data points required to create a comprehensive job posting.
-            2. Auto-fill the key data points based on the provided sample job postings.
-            3. Generate any questions that need to be asked to gather missing or additional information necessary to create a new job posting.
-            
-            Please provide the output in the following format:
-            {
-                "Key Data Points": ["data point 1", "data point 2"],
-                "Auto-Filled Data": {
-                    "data point 1": "value 1",
-                    "data point 2": "value 2"
-                },
-                "Questions for Job Creator": ["question 1", "question 2"]
-            }`
+            content: `Generate a comprehensive job description. Use the provided information and similar job descriptions as inspiration. Ensure it includes necessary sections and is tailored to attract qualified candidates.
+
+            Task:
+            1. Analyze the similar job descriptions provided.
+            2. Synthesize the input data and similar job descriptions to produce a well-organized job description.
+            3. Ensure the description covers all critical aspects such as job title, responsibilities, qualifications, and company culture.
+
+            Output should include:
+            - Job Title
+            - Overview (company and role description)
+            - Responsibilities
+            - Required Qualifications
+            - Preferred Qualifications
+            - Skills
+            - Benefits
+            - Application Process
+            `
         },
         {
             role: "user",
-            content: `
-            This is the role I am trying to make a job posting for: ${targetRole}.
-            Here are the similar roles in my company: ${JSON.stringify(similarJobRoles)}.`
+            content: `Here is the role information: ${jobRole}.
+            Responsibilities include: ${responsibilitiesStr}.
+            Qualifications needed: ${qualificationsStr}.
+            Encouraged to use these words: ${recommendedWords.join(", ")}.
+            Avoid using these words: ${wordsToAvoid.join(", ")}.
+
+            Similar job descriptions:
+            ${similarJobsStr}
+
+            Use these similar job descriptions as inspiration, but create a unique and tailored description for the given role.`
         }
     ];
+    
+    const gptResponse = await gpt(messages, 0.6, "YemGPT4");
+    console.log('GPT Response:', gptResponse);
+    return gptResponse;
 
-    const makeCondensedUpdate = async () => {
-        const gptResponse = await gpt(messages, 0.6, "YemGPT4");
-        const parsedResponse = JSON5.parse(gptResponse);
-        return parsedResponse;
-    }
+    // const makeFinalJobDescription = async () => {
+    //     const gptResponse = await gpt(messages, 0.6, "YemGPT4");
+    //     console.log('GPT Response:', gptResponse);
+    //     // Ensure the response is in the correct format
+    //     try {
+    //         const parsedResponse = JSON5.parse(gptResponse);
+    //         if (parsedResponse && parsedResponse["Job Title"]) {
+    //             return parsedResponse;
+    //         } else {
+    //             throw new Error("Invalid response format");
+    //         }
+    //     } catch (error) {
+    //         console.error('Error parsing GPT response:', error);
+    //         return {
+    //             "Error": "Unable to generate job description. Please try again."
+    //         };
+    //     }
+    // }
 
-    const condensedUpdate = await makeCondensedUpdate();
-    return condensedUpdate;
-}
-
-const generateFinalJobDescription = async (jobRole, autoFilledData, answers) => {
-    const messages = [
-        {
-            role: "system",
-            content: `Your task is to create a comprehensive job description. The user is a recruiter whose job is to make effective job postings and get good, quick hires. The user will provide the job role they are looking to make a job posting for, auto-filled data, and additional answers from the job creator.
-            
-            Based on the provided information, please:
-            1. Combine the job role, auto-filled data, and additional answers to create a comprehensive job description.
-            2. Ensure the job description is detailed, professional, and enticing for potential candidates.
-            
-            Please provide the output in a JSON FORMAT with the necessary key value pairs for a job description.
-            
-            EXAMPLE:
-            {
-                "Job Title": "Job Title Here",
-                "Job Salary": "Salary Range Here",
-                "Experience Required": "Experience Details Here",
-                "Responsibilities": "Responsibilities Here",
-                "Qualifications": "Qualifications Here",
-                "Benefits": "Benefits Here",
-                etc...
-            }`
-        },
-        {
-            role: "user",
-            content: `
-            This is the role I am trying to make a job posting for: ${jobRole}.
-            Here is the auto-filled data: ${JSON.stringify(autoFilledData, null, 2)}.
-            Here are the additional answers: ${JSON.stringify(answers, null, 2)}.`
-        }
-    ];
-
-    const makeFinalJobDescription = async () => {
-        const gptResponse = await gpt(messages, 0.6, "YemGPT4");
-
-        // Ensure the response is in the correct format
-        try {
-            const parsedResponse = JSON5.parse(gptResponse);
-            if (parsedResponse && parsedResponse["Job Title"]) {
-                return parsedResponse;
-            } else {
-                throw new Error("Invalid response format");
-            }
-        } catch (error) {
-            console.error('Error parsing GPT response:', error);
-            return {
-                "Error": "Unable to generate job description. Please try again."
-            };
-        }
-    }
-
-    const finalJobDescription = await makeFinalJobDescription();
-    return finalJobDescription;
+    // const finalJobDescription = await makeFinalJobDescription();
+    // return finalJobDescription;
 };
+
 
 module.exports = {
     csvToJson,
     storeDataInPinecone,
-    GetSimilarJobRoles,
-    GetDataForJobPosting,
-    generateFinalJobDescription
+    // GetSimilarJobRoles,
+    generateFinalJobDescription,
+    GetSimilarJobTitles
 }

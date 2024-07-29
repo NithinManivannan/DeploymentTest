@@ -8,15 +8,6 @@ const pc = new Pinecone({
 });
 const index = pc.index("newsbuddy");
 
-function todaysNameSpaceGenerator(namespace, daysAgo) {
-    const today = new Date();
-    const date = today.getDate() - (daysAgo || 0);
-    const month = today.getMonth() + 1;
-    const year = today.getFullYear();
-
-    return `${namespace}`;
-}
-
 async function writeVectors(vectors, namespace) {
     const todaysNamespace = todaysNameSpaceGenerator(namespace);
     try {
@@ -30,51 +21,27 @@ async function writeVectors(vectors, namespace) {
     }
 }
 
-async function searchVector(queryString, namespace, topKLimit, filters = {}) {
-    const todaysNamespace = todaysNameSpaceGenerator(namespace);
+async function searchVector(text, namespace, topKLimit) {
     try {
-        const data = await getEmbedding(queryString);
+        // Getting embedding for the text
+        const embedding = await getEmbedding(text);
+        if (!embedding) {
+            console.error('Failed to get embedding for the text:', text);
+            return [];
+        }
 
-        // Create the query request
-        const queryResponse = await index.namespace(todaysNamespace).query({
-            vector: data,
+        // Querying the index with the embedding directly using the specified namespace
+        const queryResponse = await index.namespace(namespace).query({
+            vector: embedding,
             topK: topKLimit,
             includeMetadata: true,
         });
 
-        let queryResponseMatches = queryResponse.matches;
-
-        return queryResponseMatches;
+        console.log('Query response:', queryResponse.matches);
+        return queryResponse.matches;
     } catch (error) {
-        console.error('Error in searchVector function', { error: error.message, queryString, todaysNamespace, topKLimit, filters });
-    }
-}
-
-async function search2DaysOfVectors(queryString, namespace, topKLimit, filters = {}) {
-    const todaysNamespace = todaysNameSpaceGenerator(namespace);
-    const yesterdaysNamespace = todaysNameSpaceGenerator(namespace, 1);
-
-    try {
-        const data = await getEmbedding(queryString);
-
-        // Create the query request
-        const todaysQueryResponse = await index.namespace(todaysNamespace).query({
-            vector: data,
-            topK: topKLimit,
-            includeMetadata: true,
-        });
-
-        const yesterdaysQueryResponse = await index.namespace(yesterdaysNamespace).query({
-            vector: data,
-            topK: topKLimit,
-            includeMetadata: true,
-        });
-
-        let queryResponseMatches = todaysQueryResponse.matches.concat(yesterdaysQueryResponse.matches);
-
-        return queryResponseMatches;
-    } catch (error) {
-        console.error('Error in search2DaysOfVectors function', { error: error.message, queryString, todaysNamespace, topKLimit, filters });
+        console.error('Error in searchVector function', { error: error.message, text, namespace, topKLimit });
+        return [];
     }
 }
 
@@ -175,7 +142,6 @@ const standardDeviation = (arr, usePopulation = false) => {
 module.exports = {
     writeVectors,
     searchVector,
-    search2DaysOfVectors,
     keepRelevantMatches,
     filterExactMatches
 }
