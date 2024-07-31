@@ -3,6 +3,8 @@ const cors = require('cors');
 const { csvToJson, storeDataInPinecone, GetSimilarJobTitles, generateFinalJobDescription } = require('./main');
 const { getEmbedding } = require('./APILayer/openai');
 const { searchVector } = require('./APILayer/pinecone');
+require('dotenv').config();
+
 
 const app = express();
 const port = process.env.PORT || 3000;
@@ -14,8 +16,6 @@ app.use(cors());
 app.use(express.json());
 
 app.get('/', async (req, res) => {
-  const x = await getEmbedding("Software Enginner");
-  await searchVector(x, "Title", 10);
   res.send('Hello Yem!');
 });
 

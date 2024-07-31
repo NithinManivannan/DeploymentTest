@@ -1,10 +1,12 @@
 const { Pinecone } = require("@pinecone-database/pinecone");
 const { getEmbedding } = require("./openai");
 const percentile = require('percentile');
+require('dotenv').config();
+
 
 // Initialize Pinecone client with the API key
 const pc = new Pinecone({
-    apiKey: "75179fff-4cf9-4640-bfd3-40030ea73f29",
+    apiKey: process.env.PINECONE_API_KEY
 });
 const index = pc.index("dataset");
 
