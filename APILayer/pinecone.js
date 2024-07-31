@@ -4,7 +4,7 @@ const percentile = require('percentile');
 
 // Initialize Pinecone client with the API key
 const pc = new Pinecone({
-    apiKey: "8123d0bc-104c-402c-be6d-f431d264ae0b",
+    apiKey: "75179fff-4cf9-4640-bfd3-40030ea73f29",
 });
 const index = pc.index("dataset");
 
