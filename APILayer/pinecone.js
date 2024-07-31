@@ -4,31 +4,23 @@ const percentile = require('percentile');
 
 // Initialize Pinecone client with the API key
 const pc = new Pinecone({
-    apiKey: "4351efc4-801a-47ea-b020-7e1d236f848d",
+    apiKey: "8123d0bc-104c-402c-be6d-f431d264ae0b",
 });
-const index = pc.index("newsbuddy");
+const index = pc.index("dataset");
 
 async function writeVectors(vectors, namespace) {
-    const todaysNamespace = todaysNameSpaceGenerator(namespace);
     try {
-
-        await index.namespace(todaysNamespace).upsert(vectors);
-
+        await index.namespace(namespace).upsert(vectors);
         console.log('Successfully wrote vectors');
         return true;
     } catch (error) {
         console.error('Error in writeVectors function', { error: error.message });
+        return false;
     }
 }
 
-async function searchVector(text, namespace, topKLimit) {
+async function searchVector(embedding, namespace, topKLimit) {
     try {
-        // Getting embedding for the text
-        const embedding = await getEmbedding(text);
-        if (!embedding) {
-            console.error('Failed to get embedding for the text:', text);
-            return [];
-        }
 
         // Querying the index with the embedding directly using the specified namespace
         const queryResponse = await index.namespace(namespace).query({

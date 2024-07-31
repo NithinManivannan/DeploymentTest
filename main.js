@@ -41,7 +41,7 @@ async function storeDataInPinecone() {
                 qualification: data.RequiredQual
             }
         };
-        await writeVectors([record], "JOB_TITLES");
+        await writeVectors([record], "Title");
     }
 }
 
@@ -64,12 +64,13 @@ async function storeDataInPinecone() {
 
 async function GetSimilarJobTitles(jobTitle, limit = 3) {
     try {
+        console.log("Job title passed to getEmbedding:", jobTitle);
         const embedding = await getEmbedding(jobTitle);
         if (!embedding) {
             console.error('Failed to get embedding for job title');
             return [];
         }
-        const response = await searchVector(embedding, "JOB_TITLES", limit);
+        const response = await searchVector(embedding, "Title", limit);
         return response || [];
     } catch (error) {
         console.error('Error in GetSimilarJobTitles:', error);
@@ -87,9 +88,8 @@ const generateFinalJobDescription = async (data) => {
     const qualificationsStr = qualifications.length > 0 ? qualifications.join(", ") : "[No qualifications listed]";
 
     const similarJobsStr = similarJobs.map(job => 
-        `Title: ${job.title}\nDescription: ${job.description}\nRequirements: ${job.requirement}\nQualifications: ${job.qualification}`
+        `Title: ${job.metadata.title}\nDescription: ${job.metadata.description}\nRequirements: ${job.metadata.requirement}\nQualifications: ${job.metadata.qualification}`
     ).join("\n\n");
-
         const messages = [
         {
             role: "system",

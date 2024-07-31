@@ -74,6 +74,7 @@ async function getEmbeddings(texts) {
 
 async function getEmbedding(text) {
     try {
+
         const response = await client.getEmbeddings("YemEmbedding", [text]);
         console.log('Successfully got embedding', { text });
         return response.data[0].embedding;

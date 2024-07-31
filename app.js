@@ -1,6 +1,8 @@
 const express = require('express');
 const cors = require('cors');
 const { csvToJson, storeDataInPinecone, GetSimilarJobTitles, generateFinalJobDescription } = require('./main');
+const { getEmbedding } = require('./APILayer/openai');
+const { searchVector } = require('./APILayer/pinecone');
 
 const app = express();
 const port = process.env.PORT || 3000;
@@ -11,8 +13,20 @@ app.use(cors());
 // Middleware to parse JSON bodies
 app.use(express.json());
 
-app.get('/', (req, res) => {
+app.get('/', async (req, res) => {
+  const x = await getEmbedding("Software Enginner");
+  await searchVector(x, "Title", 10);
   res.send('Hello Yem!');
+});
+
+app.get('/updatepinecone', async (req, res) => {
+  try {
+      await storeDataInPinecone();
+      res.send('Data successfully stored in Pinecone.');
+  } catch (error) {
+    console.error("Failed to store data:", error);
+    res.status(500).send('Failed to update data in Pinecone: ' + error.message);
+  }
 });
 
 app.post('/api/final-description', async (req, res) => {
