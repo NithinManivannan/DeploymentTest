@@ -45,24 +45,7 @@ async function storeDataInPinecone() {
     }
 }
 
-// async function GetSimilarJobRoles(role) {
-//     let jsonData = fs.readFileSync(outputJsonPath, 'utf8');
-//     jsonData = JSON.parse(jsonData);
-
-//     const response = await searchVector(role, "JOB POSTINGS", 10);
-
-//     // get matching job roles
-//     const jobRoles = [];
-//     for (const result of response) {
-//         const id = Number(result.id);
-//         const jobRole = jsonData.find((record) => record.id === id);
-//         jobRoles.push(jobRole);
-//     }
-
-//     return jobRoles;
-// }
-
-async function GetSimilarJobTitles(jobTitle, limit = 3) {
+async function GetSimilarJobTitles(jobTitle, limit = 5) {
     try {
         console.log("Job title passed to getEmbedding:", jobTitle);
         const embedding = await getEmbedding(jobTitle);
@@ -79,17 +62,36 @@ async function GetSimilarJobTitles(jobTitle, limit = 3) {
 }
 
 const generateFinalJobDescription = async (data) => {
-    const { jobRole, responsibilities, qualifications, recommendedWords, wordsToAvoid } = data;
+    const { jobTitle, wordsToUse, wordsToAvoid, additionalInfo } = data;
+
+    // Convert wordsToUse and wordsToAvoid from string to array if they are not already arrays
+    const wordsToUseArray = Array.isArray(wordsToUse) ? wordsToUse : wordsToUse.split(',');
+    const wordsToAvoidArray = Array.isArray(wordsToAvoid) ? wordsToAvoid : wordsToAvoid.split(',');
+
 
     // Get similar job titles
-    const similarJobs = await GetSimilarJobTitles(jobRole);
+    const similarJobs = await GetSimilarJobTitles(jobTitle);
+    console.log("Similar Jobs:", similarJobs); // Debugging line to inspect what is returned
 
-    const responsibilitiesStr = responsibilities.length > 0 ? responsibilities.join(", ") : "[No responsibilities listed]";
-    const qualificationsStr = qualifications.length > 0 ? qualifications.join(", ") : "[No qualifications listed]";
+    if (!similarJobs.length) {
+        return "No similar job descriptions found.";
+    }
 
-    const similarJobsStr = similarJobs.map(job => 
-        `Title: ${job.metadata.title}\nDescription: ${job.metadata.description}\nRequirements: ${job.metadata.requirement}\nQualifications: ${job.metadata.qualification}`
+    const similarJobsDetails = similarJobs.map(job => {
+        return {
+            Title: job.metadata.title || job.metadata.Title,
+            Overview: job.metadata.description || job.metadata.JobDescription,
+            Responsibilities: job.metadata.requirement || job.metadata.JobRequirment,
+            Qualifications: job.metadata.qualification || job.metadata.RequiredQual
+        };
+    });
+    console.log("Similar Jobs Details:", similarJobsDetails); // Verify mapped details
+
+    // Creating a synthesized description for GPT to process
+    const descriptions = similarJobsDetails.map(job => 
+        `Title: ${job.Title}\nOverview: ${job.Overview}\nResponsibilities: ${job.Responsibilities}\nQualifications: ${job.Qualifications}`
     ).join("\n\n");
+
         const messages = [
         {
             role: "system",
@@ -113,15 +115,13 @@ const generateFinalJobDescription = async (data) => {
         },
         {
             role: "user",
-            content: `Here is the role information: ${jobRole}.
-            Responsibilities include: ${responsibilitiesStr}.
-            Qualifications needed: ${qualificationsStr}.
-            Encouraged to use these words: ${recommendedWords.join(", ")}.
-            Avoid using these words: ${wordsToAvoid.join(", ")}.
+            content: `Job Title: ${jobTitle}
+            Words to use: ${wordsToUse.join(", ")}
+            Words to avoid: ${wordsToAvoid.join(", ")}
+            Additional Information: ${additionalInfo || 'None provided'}
 
             Similar job descriptions:
-            ${similarJobsStr}
-
+            ${descriptions}
             Use these similar job descriptions as inspiration, but create a unique and tailored description for the given role.`
         }
     ];
@@ -130,34 +130,12 @@ const generateFinalJobDescription = async (data) => {
     console.log('GPT Response:', gptResponse);
     return gptResponse;
 
-    // const makeFinalJobDescription = async () => {
-    //     const gptResponse = await gpt(messages, 0.6, "YemGPT4");
-    //     console.log('GPT Response:', gptResponse);
-    //     // Ensure the response is in the correct format
-    //     try {
-    //         const parsedResponse = JSON5.parse(gptResponse);
-    //         if (parsedResponse && parsedResponse["Job Title"]) {
-    //             return parsedResponse;
-    //         } else {
-    //             throw new Error("Invalid response format");
-    //         }
-    //     } catch (error) {
-    //         console.error('Error parsing GPT response:', error);
-    //         return {
-    //             "Error": "Unable to generate job description. Please try again."
-    //         };
-    //     }
-    // }
-
-    // const finalJobDescription = await makeFinalJobDescription();
-    // return finalJobDescription;
 };
 
 
 module.exports = {
     csvToJson,
     storeDataInPinecone,
-    // GetSimilarJobRoles,
-    generateFinalJobDescription,
-    GetSimilarJobTitles
+    GetSimilarJobTitles,
+    generateFinalJobDescription
 }

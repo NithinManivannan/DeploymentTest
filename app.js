@@ -30,18 +30,26 @@ app.get('/updatepinecone', async (req, res) => {
 });
 
 app.post('/api/final-description', async (req, res) => {
-    const { jobRole, responsibilities, qualifications, recommendedWords, wordsToAvoid } = req.body;
-    console.log("Received data:", req.body);
-    // Process the input to generate a job description
-    const finalDescription = await generateFinalJobDescription({
-        jobRole,
-        responsibilities,
-        qualifications,
-        recommendedWords,
-        wordsToAvoid
-    });
+  console.log("Received request body:", req.body);  // Check what is being received
+  const { jobTitle, wordsToUse, wordsToAvoid, additionalInfo } = req.body;
 
-    res.json({ finalDescription });
+  if (!jobTitle) {
+      console.error("Job title is missing.");
+      return res.status(400).send("Job title is required.");
+  }
+
+  try {
+      const finalDescription = await generateFinalJobDescription({
+          jobTitle,
+          wordsToUse,
+          wordsToAvoid,
+          additionalInfo
+      });
+      res.json({ finalDescription });
+  } catch (error) {
+      console.error("Failed to generate description:", error);
+      res.status(500).send('Failed to generate job description: ' + error.message);
+  }
 });
 
 
