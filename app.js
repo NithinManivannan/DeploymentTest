@@ -10,7 +10,10 @@ const app = express();
 const port = process.env.PORT || 3000;
 
 // Use CORS middleware
-app.use(cors());
+app.use(cors({
+  origin: process.env.CORS_ORIGIN || 'https://white-forest-07118231e.5.azurestaticapps.net'
+}));
+
 
 // Middleware to parse JSON bodies
 app.use(express.json());
