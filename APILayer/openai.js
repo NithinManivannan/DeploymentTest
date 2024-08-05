@@ -1,9 +1,10 @@
 const { withRetries } = require('../Middleware/CallRetriesHelper');
 const { OpenAIClient, AzureKeyCredential } = require("@azure/openai");
+require('dotenv').config();
 
 const client = new OpenAIClient(
     "https://yemgptswedenregion.openai.azure.com/",
-    new AzureKeyCredential("bd23826ee13840539652a60eaa6a526b"));
+    new AzureKeyCredential(process.env.AZURE_KEY_CREDENTIAL));
 
 async function gpt(messages, temperature = 0.5, modelName = "YemGPT35", throwError = false) {
     console.log('Start gpt function', { message: messages, temperature });
